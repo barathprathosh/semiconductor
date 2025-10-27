@@ -1,0 +1,31 @@
+{
+ "attach_print": 0,
+ "channel": "Email",
+ "condition_type": "Python",
+ "creation": "2025-10-23 04:03:56.700882",
+ "days_in_advance": 0,
+ "docstatus": 0,
+ "doctype": "Notification",
+ "document_type": "Sales Order",
+ "enabled": 1,
+ "event": "New",
+ "idx": 0,
+ "is_standard": 1,
+ "message": "<h3>Demand Request Pending Approval</h3>\n\n<p>Demand Request <b>{{ doc.name }}</b> has been created and is awaiting your approval.</p>\n\n<!-- show last comment if exists -->\n{% if comments %}\n<p><i>Last comment: {{ comments[-1].comment }} by {{ comments[-1].by }}</i></p>\n{% endif %}\n\n<h4>Details</h4>\n<ul>\n  <li>Requested By: {{ doc.owner }}</li>\n  <li>Customer: {{ doc.customer }}</li>\n  <li>Status: {{ doc.status }}</li>\n</ul>\n\n<h4>Items Requested</h4>\n<ul>\n  {% for row in doc.items %}\n  <li>{{ row.item_code }} \u2013 Qty: {{ row.qty }}</li>\n  {% endfor %}\n</ul>\n\n<p><a href=\"{{ frappe.utils.get_url_to_form(doc.doctype, doc.name) }}\" target=\"_blank\">\n\ud83d\udc49 Review this Demand Request\n</a></p>",
+ "message_type": "Markdown",
+ "minutes_offset": 0,
+ "modified": "2025-10-23 04:10:49.168176",
+ "modified_by": "Administrator",
+ "module": "Semiconductor",
+ "name": "SO Pending Approval",
+ "owner": "Administrator",
+ "recipients": [
+  {
+   "cc": "barath@riverstonetech.com",
+   "receiver_by_document_field": "contact_email"
+  }
+ ],
+ "send_system_notification": 0,
+ "send_to_all_assignees": 0,
+ "subject": "Demand Request {{ doc.name }} is Pending Approval"
+}
