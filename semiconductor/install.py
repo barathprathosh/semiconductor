@@ -370,3 +370,492 @@ def AI_chip_manufacturing_data():
         frappe.db.commit()
 
     frappe.msgprint("✅ AI Inference Chip Master Data Created Successfully!")
+
+
+def create_ai_chip_manufacturing_flow():
+    # -----------------------------------------------------------
+    # 2. Suppliers
+    # -----------------------------------------------------------
+    suppliers = [
+        {"supplier_name": "TSMC Foundry", "supplier_type": "Manufacturing"},
+        {"supplier_name": "ASE Group", "supplier_type": "Subcontractor"},
+        {"supplier_name": "Intel Test Services", "supplier_type": "Testing"},
+        {"supplier_name": "Material Supply Co.", "supplier_type": "Raw Material"},
+    ]
+    for s in suppliers:
+        if not frappe.db.exists("Supplier", s["supplier_name"]):
+            supplier_doc = frappe.get_doc({
+                "doctype": "Supplier",
+                "supplier_name": s["supplier_name"],
+                "supplier_group": s["supplier_type"]
+            })
+            supplier_doc.insert(ignore_permissions=True)
+            print(f"🏭 Created Supplier: {s['supplier_name']}")
+
+    # -----------------------------------------------------------
+    # 3. Workstation Types and Workstations
+    # -----------------------------------------------------------
+    workstation_types = [
+        "Wafer Fabrication", "Photolithography", "Etching / Metallization",
+        "Dicing Workstation", "Packaging / Assembly", "Test Lab", "QA / Inspection"
+    ]
+    for ws in workstation_types:
+        if not frappe.db.exists("Workstation", ws):
+            frappe.get_doc({
+                "doctype": "Workstation",
+                "workstation_name": ws,
+                "description": f"{ws} for AI Chip Manufacturing"
+            }).insert(ignore_permissions=True)
+            print(f"🔧 Created Workstation: {ws}")
+
+    # -----------------------------------------------------------
+    # 4. Operations
+    # -----------------------------------------------------------
+    operations = [
+        {"operation_name": "Wafer Fabrication", "workstation": "Wafer Fabrication"},
+        {"operation_name": "Photolithography", "workstation": "Photolithography"},
+        {"operation_name": "Etching & Metallization", "workstation": "Etching / Metallization"},
+        {"operation_name": "Wafer Dicing / Singulation", "workstation": "Dicing Workstation"},
+        {"operation_name": "Chip Packaging", "workstation": "Packaging / Assembly"},
+        {"operation_name": "Testing & Binning", "workstation": "Test Lab"},
+        {"operation_name": "Final QA / Inspection", "workstation": "QA / Inspection"},
+    ]
+
+    for op in operations:
+        if not frappe.db.exists("Operation", op["operation_name"]):
+            frappe.get_doc({
+                "doctype": "Operation",
+                "operation_name": op["operation_name"],
+                "workstation": op["workstation"],
+                "description": f"{op['operation_name']} process for semiconductor chip"
+            }).insert(ignore_permissions=True)
+            print(f"⚙️ Created Operation: {op['operation_name']}")
+
+    # -----------------------------------------------------------
+    # 5. Sub-Assembly BOMs
+    # -----------------------------------------------------------
+    boms = [
+        {
+            "item": "AI Die",
+            "items": [
+                {"item_code": "SILICON-WAFER-300MM", "qty": 1},
+                {"item_code": "PHOTORESIST-CHEM", "qty": 2},
+                {"item_code": "DOPANT-PHOSPHORUS", "qty": 1},
+                {"item_code": "DOPANT-BORON", "qty": 1},
+                {"item_code": "ALUMINUM-METAL", "qty": 1},
+                {"item_code": "COPPER-METAL", "qty": 1},
+                {"item_code": "DIELECTRIC-HFO2", "qty": 1},
+                {"item_code": "DIELECTRIC-SIO2", "qty": 1}
+            ],
+            "operations": [
+                {"operation": "Wafer Fabrication", "workstation": "Wafer Fabrication"},
+                {"operation": "Photolithography", "workstation": "Photolithography"},
+                {"operation": "Etching & Metallization", "workstation": "Etching / Metallization"},
+                {"operation": "Wafer Dicing / Singulation", "workstation": "Dicing Workstation"}
+            ]
+        },
+        {
+            "item": "AI Package Assembly",
+            "items": [
+                {"item_code": "AI Die", "qty": 1},
+                {"item_code": "THERMAL-INTERFACE-MAT", "qty": 1},
+                {"item_code": "MOLD-COMPOUND", "qty": 1},
+                {"item_code": "SOLDER-BALLS", "qty": 1},
+                {"item_code": "LEADFRAME-PACK", "qty": 1}
+            ],
+            "operations": [
+                {"operation": "Chip Packaging", "workstation": "Packaging / Assembly"}
+            ]
+        },
+        # {
+        #     "item": "AI Inference Chip",
+        #     "items": [
+        #         {"item_code": "AI Package Assembly", "qty": 1}
+        #     ],
+        #     "operations": [
+        #         {"operation": "Testing & Binning", "workstation": "Test Lab"},
+        #         {"operation": "Final QA / Inspection", "workstation": "QA / Inspection"}
+        #     ]
+        # }
+    ]
+
+    for b in boms:
+        if not frappe.db.exists("BOM", {"item": b["item"], "is_active": 1}):
+            bom_doc = frappe.get_doc({
+                "doctype": "BOM",
+                "item": b["item"],
+                "quantity": 1,
+                "is_active": 1,
+                "is_default": 1,
+                "items": [{"item_code": i["item_code"], "qty": i["qty"]} for i in b["items"]],
+                "operations": [{"operation": o["operation"], "workstation": o["workstation"], "time_in_mins": 60} for o in b["operations"]],
+            })
+            bom_doc.insert(ignore_permissions=True)
+            print(f"🧩 Created BOM: {b['item']}")
+
+    # -----------------------------------------------------------
+    # 6. Purchase Orders for Raw Materials
+    # -----------------------------------------------------------
+    raw_materials = [
+        {"item_code": "SILICON-WAFER-300MM", "qty": 100, "rate": 2000},
+        {"item_code": "PHOTORESIST-CHEM", "qty": 500, "rate": 50},
+        {"item_code": "DOPANT-PHOSPHORUS", "qty": 100, "rate": 150},
+        {"item_code": "DOPANT-BORON", "qty": 100, "rate": 160},
+        {"item_code": "ALUMINUM-METAL", "qty": 500, "rate": 120},
+        {"item_code": "COPPER-METAL", "qty": 500, "rate": 100},
+        {"item_code": "DIELECTRIC-HFO2", "qty": 100, "rate": 180},
+        {"item_code": "DIELECTRIC-SIO2", "qty": 100, "rate": 160},
+    ]
+
+    if not frappe.db.exists("Purchase Order", {"supplier": "Material Supply Co."}):
+        po = frappe.get_doc({
+            "doctype": "Purchase Order",
+            "supplier": "Material Supply Co.",
+            "schedule_date": frappe.utils.nowdate(),
+            "items": [{"item_code": i["item_code"], "qty": i["qty"], "rate": i["rate"]} for i in raw_materials]
+        })
+        po.insert(ignore_permissions=True)
+        po.submit()
+        print("🧾 Created Purchase Order for raw materials.")
+
+    # -----------------------------------------------------------
+    # 7. Subcontracting Orders
+    # -----------------------------------------------------------
+    subcontract_orders = [
+        {
+            "supplier": "ASE Group",
+            "subcontracted_item": "AI Package Assembly",
+            "qty": 5000,
+            "rm_items": [
+                {"item_code": "AI Die", "qty": 5000},
+                {"item_code": "THERMAL-INTERFACE-MAT", "qty": 5000},
+                {"item_code": "LEADFRAME-PACK", "qty": 5000},
+            ]
+        },
+        {
+            "supplier": "Intel Test Services",
+            "subcontracted_item": "AI Inference Chip",
+            "qty": 20000,
+            "rm_items": [
+                {"item_code": "AI Package Assembly", "qty": 20000}
+            ]
+        }
+    ]
+
+    # for sc in subcontract_orders:
+    #     if not frappe.db.exists("Purchase Order", {"supplier": sc["supplier"], "is_subcontracted": 1}):
+    #         po = frappe.get_doc({
+    #             "doctype": "Purchase Order",
+    #             "supplier": sc["supplier"],
+    #             "is_subcontracted": 1,
+    #             "items": [
+    #                 {
+    #                     "item_code": sc["subcontracted_item"],
+    #                     "qty": sc["qty"],
+    #                     "schedule_date": frappe.utils.nowdate()
+    #                 }
+    #             ],
+    #             "supplied_items": sc["rm_items"]
+    #         })
+    #         po.insert(ignore_permissions=True)
+    #         po.submit()
+    #         print(f"🔧 Created Subcontract Order for {sc['subcontracted_item']} via {sc['supplier']}")
+
+    frappe.db.commit()
+    print("🎯 Full AI Chip Manufacturing Setup Complete!")
+
+
+"""
+ERPNext: Subcontracted Chip Manufacturing Full Flow Script
+File: erpnext_subcontract_chip_flow.py
+Run with: bench execute path.to.module:function_name
+
+This script creates a baseline setup for a subcontracted chip manufacturing flow in ERPNext:
+- Item Groups, UoMs, Warehouses, Suppliers
+- Raw material Items and Finished Goods Items
+- Service Item to represent subcontracted operations
+- BOM (with raw material items)
+- Work Order (Production Order)
+- Material Request for raw materials
+- Purchase Order to supplier (service item = subcontracting)
+- Purchase Receipt and Purchase Invoice skeletons
+
+Design notes / assumptions:
+- This script is intentionally idempotent: it checks for existing docs and skips creation.
+- "Subcontracting" here is modelled via a Service-type Purchase Order to a supplier (common pattern).
+- Adjust field names/values to match your ERPNext version and company settings.
+
+IMPORTANT: Test in a development site before running on production.
+"""
+
+import frappe
+from frappe.utils import nowdate
+
+# ----------------------
+# Helpers
+# ----------------------
+
+def exists(doctype, name):
+    return frappe.db.exists(doctype, name)
+
+
+def create_item_group(name, parent=None):
+    if exists('Item Group', name):
+        return name
+    doc = frappe.get_doc({
+        'doctype': 'Item Group',
+        'item_group_name': name,
+        'parent_item_group': parent or 'All Item Groups'
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.name
+
+
+def create_uom(uom_name):
+    if exists('UOM', uom_name):
+        return uom_name
+    doc = frappe.get_doc({'doctype': 'UOM', 'uom_name': uom_name})
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.name
+
+
+def create_warehouse(name, company='Default Company'):
+    if exists('Warehouse', name):
+        return name
+    doc = frappe.get_doc({'doctype': 'Warehouse', 'warehouse_name': name, 'company': company})
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.name
+
+
+def create_supplier(name, supplier_type='Company', country='India'):
+    if exists('Supplier', name):
+        return name
+    doc = frappe.get_doc({
+        'doctype': 'Supplier',
+        'supplier_name': name,
+        'supplier_type': supplier_type,
+        'country': country
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.name
+
+
+def create_item(item_code, item_name=None, item_group='Raw Materials', stock_uom='Nos', is_stock_item=1, item_type='Stock'):
+    # item_type is for clarity; in ERPNext the key fields are is_stock_item, stock_uom, item_group
+    if exists('Item', item_code):
+        return item_code
+    doc = frappe.get_doc({
+        'doctype': 'Item',
+        'item_code': item_code,
+        'item_name': item_name or item_code,
+        'item_group': item_group,
+        'is_stock_item': is_stock_item,
+        'stock_uom': stock_uom,
+        'standard_rate': 0
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.item_code
+
+
+def create_service_item(item_code, item_name=None, item_group='Services'):
+    if exists('Item', item_code):
+        return item_code
+    doc = frappe.get_doc({
+        'doctype': 'Item',
+        'item_code': item_code,
+        'item_name': item_name or item_code,
+        'item_group': item_group,
+        'is_stock_item': 0,
+        'stock_uom': 'Nos'
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.item_code
+
+
+def create_bom(item_code, raw_materials, uom='Nos'):
+    # raw_materials: list of dicts [{'item_code':..., 'qty':...}, ...]
+    if frappe.db.exists('BOM', {'item': item_code}):
+        return frappe.db.get_value('BOM', {'item': item_code})
+
+    bom = frappe.get_doc({
+        'doctype': 'BOM',
+        'item': item_code,
+        'is_default': 1,
+        'quantity': 1.0,
+        'items': [{'item_code': r['item_code'], 'qty': r['qty'], 'uom': uom} for r in raw_materials]
+    })
+    bom.insert(ignore_permissions=True)
+    bom.submit()
+    frappe.db.commit()
+    return bom.name
+
+
+def create_work_order(item_code, qty=1, bom_no=None, fg_warehouse=None):
+    # Work Order doctype is 'Work Order' in many ERPNext versions
+    filters = {'production_item': item_code}
+    if frappe.db.exists('Work Order', filters):
+        return frappe.db.get_value('Work Order', filters)
+
+    wo = frappe.get_doc({
+        'doctype': 'Work Order',
+        'production_item': item_code,
+        'qty': qty,
+        'bom_no': bom_no or '',
+        'fg_warehouse': fg_warehouse or ''
+    })
+    wo.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return wo.name
+
+
+def create_material_request_for_bom_item(item_code, qty, schedule_date=None, warehouse=None):
+    mr_name = f"MR-{item_code}-{nowdate()}-{qty}"
+    # We'll search existing MR
+    existing = frappe.db.get_value('Material Request', {'material_request_type': 'Material Transfer', 'title': mr_name})
+    if existing:
+        return existing
+
+    mr = frappe.get_doc({
+        'doctype': 'Material Request',
+        'material_request_type': 'Material Transfer',
+        'title': mr_name,
+        'transaction_date': nowdate(),
+        'schedule_date': schedule_date or nowdate(),
+        'items': [{'item_code': item_code, 'qty': qty, 'uom': 'Nos', 'warehouse': warehouse or ''}]
+    })
+    mr.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return mr.name
+
+
+def create_purchase_order(supplier, items, transaction_date=None):
+    # items: list of dicts: [{'item_code':..., 'qty':..., 'rate':...}]
+    po_doc = frappe.get_doc({
+        'doctype': 'Purchase Order',
+        'supplier': supplier,
+        'transaction_date': transaction_date or nowdate(),
+        'schedule_date': transaction_date or nowdate(),
+        'items': [{'item_code': i['item_code'], 'qty': i['qty'], 'rate': i.get('rate', 0)} for i in items]
+    })
+    po_doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return po_doc.name
+
+
+def create_purchase_receipt(po_name):
+    # Create a Purchase Receipt skeleton from PO
+    pr = frappe.get_doc({
+        'doctype': 'Purchase Receipt',
+        'supplier': frappe.db.get_value('Purchase Order', po_name, 'supplier'),
+        'posting_date': nowdate(),
+        'items': []
+    })
+    po_items = frappe.get_all('Purchase Order Item', filters={'parent': po_name}, fields=['item_code', 'qty'])
+    for it in po_items:
+        pr.append('items', {'item_code': it.item_code, 'qty': it.qty, 'received_qty': it.qty})
+    pr.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return pr.name
+
+
+def create_purchase_invoice_from_pr(pr_name):
+    pi = frappe.get_doc({
+        'doctype': 'Purchase Invoice',
+        'supplier': frappe.db.get_value('Purchase Receipt', pr_name, 'supplier'),
+        'posting_date': nowdate(),
+        'items': []
+    })
+    pr_items = frappe.get_all('Purchase Receipt Item', filters={'parent': pr_name}, fields=['item_code', 'qty'])
+    for it in pr_items:
+        pi.append('items', {'item_code': it.item_code, 'qty': it.qty, 'rate': 0})
+    pi.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return pi.name
+
+
+# ----------------------
+# Main orchestration
+# ----------------------
+
+def setup_subcontracted_chip_flow():
+    """Main function to bootstrap a sample subcontracted chip manufacturing flow."""
+    frappe.flags.ignore_permissions = True
+
+    # 1) Basic master data
+    create_item_group('Raw Materials', parent='All Item Groups')
+    create_item_group('Finished Goods', parent='All Item Groups')
+    create_item_group('Services', parent='All Item Groups')
+
+    create_uom('Nos')
+    create_uom('Gram')
+
+    company = frappe.db.get_value('Global Defaults', None, 'default_company') or frappe.db.get_value('Company')
+    if not company:
+        company = 'Default Company'
+
+    create_warehouse('Raw Warehouse - RIT', company=company)
+    create_warehouse('FG Warehouse - RIT', company=company)
+
+    supplier_name = 'Subcontractor Co.'
+    create_supplier(supplier_name)
+
+    # 2) Create items: an example finished chip and some raw materials
+    fg_item = 'CHIP-FULL-1000'
+    create_item(fg_item, item_group='Finished Goods', stock_uom='Nos')
+
+    raw1 = 'WAFER-12inch'
+    raw2 = 'PACKAGING-MATERIAL'
+    create_item(raw1, item_group='Raw Materials', stock_uom='Nos')
+    create_item(raw2, item_group='Raw Materials', stock_uom='Nos')
+
+    # Service item to represent subcontracted processing (e.g. wafer fab, packaging, test)
+    svc_item = f'SUBCONTRACT-PROCESS-{fg_item}'
+    create_service_item(svc_item, item_group='Services')
+
+    # 3) BOM for FG item (uses raw1 and raw2)
+    bom_name = create_bom(fg_item, [{'item_code': raw1, 'qty': 1}, {'item_code': raw2, 'qty': 2}])
+
+    # 4) Create a Work Order to manufacture FG
+    wo_name = create_work_order(fg_item, qty=100, bom_no=bom_name, fg_warehouse='FG Warehouse - RIT')
+
+    # 5) Material Request for raw items (simple MR)
+    mr1 = create_material_request_for_bom_item(raw1, qty=100, warehouse='Raw Warehouse - RIT')
+    mr2 = create_material_request_for_bom_item(raw2, qty=200, warehouse='Raw Warehouse - RIT')
+
+    # 6) Create Purchase Order to subcontractor for service (subcontracting)
+    po_name = create_purchase_order(supplier_name, [{'item_code': svc_item, 'qty': 1, 'rate': 10000}])
+
+    # 7) Purchase Receipt and Invoice after subcontracting done
+    pr_name = create_purchase_receipt(po_name)
+    pi_name = create_purchase_invoice_from_pr(pr_name)
+
+    frappe.db.commit()
+
+    out = {
+        'company': company,
+        'fg_item': fg_item,
+        'raw_items': [raw1, raw2],
+        'service_item': svc_item,
+        'bom': bom_name,
+        'work_order': wo_name,
+        'material_requests': [mr1, mr2],
+        'purchase_order': po_name,
+        'purchase_receipt': pr_name,
+        'purchase_invoice': pi_name
+    }
+    frappe.msgprint('Subcontracted chip flow setup completed. See bench console for details.')
+    print('\n=== Subcontracted Flow Created ===')
+    for k, v in out.items():
+        print(f"{k}: {v}")
+    return out
+
+
+# Optional: allow bench execute to call
+def execute():
+    return setup_subcontracted_chip_flow()
